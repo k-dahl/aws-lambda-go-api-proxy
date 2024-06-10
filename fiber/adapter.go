@@ -100,6 +100,14 @@ func (f *FiberLambda) proxyInternalV2(req *http.Request, err error) (events.APIG
 	return proxyResponse, nil
 }
 
+func IsIPv4(address string) bool {
+	return strings.Count(address, ":") < 2
+}
+
+func IsIPv6(address string) bool {
+	return strings.Count(address, ":") >= 2
+}
+
 func (f *FiberLambda) adaptor(w http.ResponseWriter, r *http.Request) {
 	// New fasthttp request
 	req := fasthttp.AcquireRequest()
@@ -134,6 +142,9 @@ func (f *FiberLambda) adaptor(w http.ResponseWriter, r *http.Request) {
 
 	// We need to make sure the net.ResolveTCPAddr call works as it expects a port
 	addrWithPort := r.RemoteAddr
+
+	log.Printf("saw RemoteAddr: %s", addrWithPort)
+
 	if !strings.Contains(r.RemoteAddr, ":") {
 		addrWithPort = r.RemoteAddr + ":80" // assuming a default port
 	}
