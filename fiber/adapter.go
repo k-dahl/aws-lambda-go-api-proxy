@@ -100,12 +100,30 @@ func (f *FiberLambda) proxyInternalV2(req *http.Request, err error) (events.APIG
 	return proxyResponse, nil
 }
 
+type IpInfo struct {
+	IsIPv4  bool
+	IsIPv6  bool
+	HasPort bool
+}
+
 func IsIPv4(address string) bool {
 	return strings.Count(address, ":") < 2
 }
 
 func IsIPv6(address string) bool {
 	return strings.Count(address, ":") >= 2
+}
+
+func IpHasPort(address string) bool {
+	return strings.HasSuffix(address, ":80")
+}
+
+func GetIpInfo(address string) IpInfo {
+	return IpInfo{
+		IsIPv4:  IsIPv4(address),
+		IsIPv6:  IsIPv6(address),
+		HasPort: IpHasPort(address),
+	}
 }
 
 func (f *FiberLambda) adaptor(w http.ResponseWriter, r *http.Request) {
@@ -140,13 +158,17 @@ func (f *FiberLambda) adaptor(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// We need to make sure the net.ResolveTCPAddr call works as it expects a port
-	addrWithPort := r.RemoteAddr
+	// Get info about IP.
+	ipInfo := GetIpInfo(r.RemoteAddr)
 
-	log.Printf("saw RemoteAddr: %s", addrWithPort)
+	var addrWithPort string
 
-	if !strings.Contains(r.RemoteAddr, ":") {
+	if ipInfo.IsIPv4 && !ipInfo.HasPort {
 		addrWithPort = r.RemoteAddr + ":80" // assuming a default port
+	}
+
+	if ipInfo.IsIPv6 && !ipInfo.HasPort {
+		addrWithPort = fmt.Sprintf("[%s]%s", r.RemoteAddr, ":80")
 	}
 
 	remoteAddr, err := net.ResolveTCPAddr("tcp", addrWithPort)
